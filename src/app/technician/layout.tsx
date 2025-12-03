@@ -1,3 +1,5 @@
+'use client';
+
 import { DashboardLayout } from "@/components/dashboard/dashboard-layout";
 import { Wrench, LayoutDashboard } from "lucide-react";
 
