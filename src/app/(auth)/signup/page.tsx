@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import Link from 'next/link';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -17,8 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -42,18 +43,38 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    // In a real app, you would make an API call to your backend to create a new user.
-    // For this mock, we'll just show a success message and redirect.
-    console.log('New user signup:', values);
+    
+    const { data, error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: {
+        data: {
+          name: values.name,
+        }
+      }
+    });
 
-    setTimeout(() => {
+    if (error) {
       toast({
-        title: 'Account Created!',
-        description: 'You can now sign in with your new account.',
+        variant: 'destructive',
+        title: 'Signup Failed',
+        description: error.message,
       });
-      router.push('/login');
       setIsLoading(false);
-    }, 1500);
+      return;
+    }
+
+    if (data.user) {
+        // You might want to handle email confirmation flows here.
+        // For now, we'll just show a success and redirect.
+        toast({
+            title: 'Account Created!',
+            description: 'Please check your email to confirm your account and then sign in.',
+        });
+        router.push('/login');
+    }
+    
+    setIsLoading(false);
   }
 
   return (
