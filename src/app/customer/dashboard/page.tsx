@@ -22,6 +22,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function CustomerDashboard() {
   const { user } = useAuth();
