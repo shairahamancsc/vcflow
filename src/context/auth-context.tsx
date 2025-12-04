@@ -4,7 +4,7 @@ import type { User as AppUser } from '@/lib/data';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: AppUser | null;
@@ -23,11 +23,13 @@ const getAppUserProfile = async (userId: string): Promise<{ name: string; role: 
     .eq('id', userId)
     .single();
 
-  if (error) {
+  // If .single() returns an error because no row is found, it's not a critical server error.
+  // It just means the profile doesn't exist yet.
+  if (error && error.code !== 'PGRST116') {
     console.error('Error fetching user profile:', error);
-    return null;
   }
-  return data as { name: string; role: AppUser['role'] };
+  
+  return data as { name: string; role: AppUser['role'] } | null;
 };
 
 
@@ -35,13 +37,33 @@ const getAppUserProfile = async (userId: string): Promise<{ name: string; role: 
 const processUser = async (user: SupabaseUser | null): Promise<AppUser | null> => {
   if (!user) return null;
   
-  const profile = await getAppUserProfile(user.id);
+  let profile = await getAppUserProfile(user.id);
+
+  // If profile doesn't exist, create it. This handles new signups.
+  if (!profile) {
+    const { data: newProfile, error } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata.name || user.email, // Use name from signup, fallback to email
+        role: 'customer', // Default role
+      })
+      .select('name, role')
+      .single();
+
+    if (error) {
+      console.error('Error creating user profile:', error);
+      return null;
+    }
+    profile = newProfile;
+  }
 
   return {
     id: user.id,
     email: user.email!,
     name: profile?.name || user.email!,
-    role: profile?.role || 'customer', // Default to 'customer' if profile is missing
+    role: profile?.role || 'customer',
   };
 };
 
@@ -50,21 +72,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
-
+  
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const appUser = await processUser(session?.user ?? null);
-      setUser(appUser);
-      setLoading(false);
-    };
-
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+    const processSession = async (session: Session | null) => {
         const appUser = await processUser(session?.user ?? null);
         setUser(appUser);
+        setLoading(false);
+    };
+
+    // Process initial session on load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        processSession(session);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        await processSession(session);
         // If the user logs out, session is null, and we should redirect.
         if (!session) {
             router.push('/login');
@@ -105,15 +129,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
     }
     
+    // onAuthStateChange will handle setting the user and redirecting
     if (data.user) {
-        const appUser = await processUser(data.user);
-        setUser(appUser);
-        if (appUser) {
-          router.push(`/${appUser.role}/dashboard`);
-        }
-        return appUser;
+        return await processUser(data.user);
     }
-
+    
     return null;
   };
 
