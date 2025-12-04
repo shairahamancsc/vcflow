@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { LogOut, Settings, User as UserIcon, LayoutDashboard, Users, PlusCircle } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon } from 'lucide-react';
 
 import {
   Sidebar,
@@ -31,6 +31,9 @@ import { useAuth } from '@/context/auth-context';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LayoutDashboard, Users, PlusCircle } from 'lucide-react';
+import type { User } from '@/lib/data';
+
 
 type NavItem = {
   href: string;
@@ -38,7 +41,7 @@ type NavItem = {
   icon: React.ElementType;
 };
 
-const allNavItems: Record<string, NavItem[]> = {
+const allNavItems: Record<User['role'], NavItem[]> = {
   admin: [
     { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/users', label: 'Manage Users', icon: Users },
@@ -71,7 +74,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <h1 className="text-2xl font-bold w-full text-center">
               <Link href="/">
                 <span className="text-destructive">VC</span>
-                <span className="text-primary">TechFlow</span>
+                <span className="text-primary">Flow</span>
               </Link>
             </h1>
           </div>

@@ -75,7 +75,7 @@ export default function LoginPage() {
       <CardHeader className="text-center">
         <CardTitle className="text-3xl font-bold">
             <span className="text-destructive">VC</span>
-            <span className="text-primary">TechFlow</span>
+            <span className="text-primary">Flow</span>
         </CardTitle>
         <CardDescription>
           Sign in to access your portal

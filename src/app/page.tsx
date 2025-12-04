@@ -38,7 +38,7 @@ const SplashScreen = () => {
           </span>
         </div>
         <span className="ml-4 text-primary animate-slide-in-right opacity-0" style={{ animationDelay: '0.6s' }}>
-          TechFlow
+          Flow
         </span>
       </div>
     </div>
