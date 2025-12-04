@@ -18,11 +18,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
   password: z.string().min(1, { message: 'Password is required.' }),
+  rememberMe: z.boolean().optional(),
 });
 
 export default function LoginPage() {
@@ -35,11 +37,27 @@ export default function LoginPage() {
     defaultValues: {
       email: '',
       password: '',
+      rememberMe: false,
     },
   });
+  
+  useEffect(() => {
+    const rememberedEmail = localStorage.getItem('rememberedEmail');
+    if (rememberedEmail) {
+      form.setValue('email', rememberedEmail);
+      form.setValue('rememberMe', true);
+    }
+  }, [form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    
+    if (values.rememberMe) {
+      localStorage.setItem('rememberedEmail', values.email);
+    } else {
+      localStorage.removeItem('rememberedEmail');
+    }
+
     const user = await login(values.email, values.password);
     if (!user) {
       toast({
@@ -89,6 +107,25 @@ export default function LoginPage() {
                     <Input type="password" placeholder="••••••••" {...field} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="rememberMe"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Remember me
+                    </FormLabel>
+                  </div>
                 </FormItem>
               )}
             />
