@@ -27,7 +27,7 @@ import { Bot, Sparkles, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { technicianDecisionSupport } from '@/ai/flows/technician-decision-support';
 import { Skeleton } from '@/components/ui/skeleton';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 const availableStatuses: ServiceRequest['status'][] = [
   'Picked Up',
@@ -50,6 +50,7 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
   const [aiSuggestion, setAiSuggestion] = useState<{ suggestedAction: string; reasoning: string } | null>(null);
 
   useEffect(() => {
+    const supabase = getSupabase();
     const fetchRequest = async () => {
       setLoading(true);
       const { data, error } = await supabase
@@ -99,6 +100,7 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
   }
 
   const handleUpdate = async () => {
+    const supabase = getSupabase();
     if (!status) return;
     setIsSaving(true);
 
@@ -118,7 +120,6 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
         title: 'Request Updated',
         description: `Status for ${request.id} has been saved.`,
       });
-      // Optionally re-fetch data to confirm update
       setRequest(prev => prev ? { ...prev, status, partsChanged } : null);
     }
     setIsSaving(false);

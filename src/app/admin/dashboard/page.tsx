@@ -21,7 +21,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import type { ServiceRequest, User } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -32,15 +32,14 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   useEffect(() => {
+    const supabase = getSupabase();
     const fetchData = async () => {
       setLoading(true);
-      // Fetch all service requests
       const { data: requestsData, error: requestsError } = await supabase
         .from('service_requests')
         .select('*')
         .order('updatedAt', { ascending: false });
       
-      // Fetch all users with the 'technician' role
       const { data: techsData, error: techsError } = await supabase
         .from('profiles')
         .select('id, name, email, role')

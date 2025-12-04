@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 export default function TechnicianDashboard() {
   const { user } = useAuth();
@@ -22,6 +22,7 @@ export default function TechnicianDashboard() {
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
+    const supabase = getSupabase();
     const fetchRequests = async () => {
       if (!user) return;
       setLoading(true);

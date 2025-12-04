@@ -19,7 +19,7 @@ import type { ServiceRequest } from '@/lib/data';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { useAuth } from '@/context/auth-context';
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const supabase = getSupabase();
     const fetchRequests = async () => {
       if (!user) return;
       setLoading(true);

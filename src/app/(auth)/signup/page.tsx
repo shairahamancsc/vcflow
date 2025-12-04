@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -43,6 +43,7 @@ export default function SignupPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+    const supabase = getSupabase();
     
     const { data, error } = await supabase.auth.signUp({
       email: values.email,
@@ -65,8 +66,6 @@ export default function SignupPage() {
     }
 
     if (data.user) {
-        // You might want to handle email confirmation flows here.
-        // For now, we'll just show a success and redirect.
         toast({
             title: 'Account Created!',
             description: 'Please check your email to confirm your account and then sign in.',

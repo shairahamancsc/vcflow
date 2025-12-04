@@ -67,7 +67,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { getSupabase } from '@/lib/supabaseClient';
 
 const userFormSchema = z.object({
   id: z.string().optional(),
@@ -93,6 +93,7 @@ export default function ManageUsersPage() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
+  const supabase = getSupabase();
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -138,9 +139,6 @@ export default function ManageUsersPage() {
   const confirmDelete = async () => {
     if (!selectedUser) return;
 
-    // This requires elevated privileges, typically done in a serverless function.
-    // For this prototype, we assume the admin has rights to call this.
-    // In production, you MUST secure this in a Supabase Edge Function.
     const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
 
     if (authError) {
@@ -149,14 +147,13 @@ export default function ManageUsersPage() {
         return;
     }
     
-    // Also remove from our public 'profiles' table
     const { error: profileError } = await supabase.from('profiles').delete().eq('id', selectedUser.id);
     
     if (profileError) {
         toast({ variant: 'destructive', title: 'Failed to remove user profile', description: profileError.message });
     } else {
         toast({ title: 'User Removed', description: `${selectedUser.name} has been removed.` });
-        fetchUsers(); // Refresh the list
+        fetchUsers(); 
     }
     setIsDeleteAlertOpen(false);
     setSelectedUser(null);
@@ -164,7 +161,7 @@ export default function ManageUsersPage() {
 
   const onUserFormSubmit = async (values: z.infer<typeof userFormSchema> | z.infer<typeof editUserSchema>) => {
     setIsSubmitting(true);
-    if (selectedUser) { // Editing existing user
+    if (selectedUser) {
       const { error } = await supabase
         .from('profiles')
         .update({ name: values.name, role: values.role })
@@ -176,9 +173,8 @@ export default function ManageUsersPage() {
         toast({ title: 'User Updated', description: `Details for ${values.name} have been updated.` });
         fetchUsers();
       }
-    } else { // Adding new user
+    } else { 
         const newUserData = values as z.infer<typeof userFormSchema>;
-        // Create user in Supabase Auth
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: newUserData.email,
             password: newUserData.password,
@@ -188,8 +184,6 @@ export default function ManageUsersPage() {
         if (authError || !authData.user) {
             toast({ variant: 'destructive', title: 'Signup Failed', description: authError?.message || 'Could not create user.' });
         } else {
-            // The onAuthStateChange trigger in `auth-context` should handle the profile creation,
-            // but we can add it here explicitly for robustness if needed.
              const { error: profileError } = await supabase.from('profiles').insert({
                 id: authData.user.id,
                 name: newUserData.name,
@@ -295,7 +289,6 @@ export default function ManageUsersPage() {
         </CardContent>
       </Card>
 
-      {/* Add/Edit User Dialog */}
       <Dialog open={isUserFormOpen} onOpenChange={setIsUserFormOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -382,7 +375,6 @@ export default function ManageUsersPage() {
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
         <AlertDialogContent>
             <AlertDialogHeader>
