@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { LogOut, Settings, User as UserIcon } from 'lucide-react';
+import { LogOut, Settings, User as UserIcon, LayoutDashboard, Users, PlusCircle } from 'lucide-react';
 
 import {
   Sidebar,
@@ -38,16 +38,30 @@ type NavItem = {
   icon: React.ElementType;
 };
 
-type DashboardLayoutProps = {
-  children: React.ReactNode;
-  navItems: NavItem[];
+const allNavItems: Record<string, NavItem[]> = {
+  admin: [
+    { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/users', label: 'Manage Users', icon: Users },
+  ],
+  customer: [
+    { href: '/customer/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/customer/new-request', label: 'New Request', icon: PlusCircle },
+  ],
+  technician: [
+    { href: '/technician/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  ]
 };
 
-export function DashboardLayout({ children, navItems }: DashboardLayoutProps) {
+type DashboardLayoutProps = {
+  children: React.ReactNode;
+};
+
+export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   
-  const avatarData = PlaceHolderImages.find((img) => img.id === `avatar-${user?.name.toLowerCase()}`);
+  const avatarData = PlaceHolderImages.find((img) => user && img.id === `avatar-${user.name.toLowerCase()}`);
+  const navItems = user ? allNavItems[user.role] : [];
 
   return (
     <SidebarProvider>
