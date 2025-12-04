@@ -1,7 +1,6 @@
 'use client';
 
 import type { User as AppUser } from '@/lib/data';
-import { users as mockUsers } from '@/lib/data';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
@@ -16,17 +15,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Combines Supabase user data with our app's mock role data
-const processUser = (user: SupabaseUser | null): AppUser | null => {
+// Fetches app-specific user profile from your 'profiles' table in Supabase
+const getAppUserProfile = async (userId: string): Promise<{ name: string; role: AppUser['role'] } | null> => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('name, role')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error('Error fetching user profile:', error);
+    return null;
+  }
+  return data as { name: string; role: AppUser['role'] };
+};
+
+
+// Combines Supabase user data with our app's profile data
+const processUser = async (user: SupabaseUser | null): Promise<AppUser | null> => {
   if (!user) return null;
-  // In a real app, the 'role' would likely come from your own 'profiles' table in Supabase.
-  // Here, we'll find the mock user to get their role for demonstration purposes.
-  const mockUser = mockUsers.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
+  
+  const profile = await getAppUserProfile(user.id);
+
   return {
     id: user.id,
     email: user.email!,
-    name: user.user_metadata.name || user.email!,
-    role: mockUser?.role || 'customer', // Default to 'customer' if not found
+    name: profile?.name || user.email!,
+    role: profile?.role || 'customer', // Default to 'customer' if profile is missing
   };
 };
 
@@ -39,22 +54,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(processUser(session?.user ?? null));
+      const appUser = await processUser(session?.user ?? null);
+      setUser(appUser);
       setLoading(false);
     };
 
     getSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(processUser(session?.user ?? null));
+      async (_event, session) => {
+        const appUser = await processUser(session?.user ?? null);
+        setUser(appUser);
+        // If the user logs out, session is null, and we should redirect.
+        if (!session) {
+            router.push('/login');
+        }
       }
     );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     if (loading) return;
@@ -85,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     if (data.user) {
-        const appUser = processUser(data.user);
+        const appUser = await processUser(data.user);
         setUser(appUser);
         if (appUser) {
           router.push(`/${appUser.role}/dashboard`);
@@ -98,8 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    router.push('/login');
+    setUser(null); // This will trigger the onAuthStateChange listener
   };
 
   return (

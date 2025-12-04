@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { notFound } from 'next/navigation';
 import {
   Card,
@@ -20,13 +20,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { ServiceRequest, serviceRequests } from '@/lib/data';
+import type { ServiceRequest } from '@/lib/data';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { useToast } from '@/hooks/use-toast';
-import { Bot, Sparkles } from 'lucide-react';
+import { Bot, Sparkles, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { technicianDecisionSupport } from '@/ai/flows/technician-decision-support';
 import { Skeleton } from '@/components/ui/skeleton';
+import { supabase } from '@/lib/supabaseClient';
 
 const availableStatuses: ServiceRequest['status'][] = [
   'Picked Up',
@@ -36,37 +37,91 @@ const availableStatuses: ServiceRequest['status'][] = [
   'Case Closed',
 ];
 
-// In a real app, this would fetch data from your database based on the ID.
-const getRequestById = (id: string): ServiceRequest | undefined => {
-  return serviceRequests.find((req) => req.id === id);
-};
-
 export default function RequestDetailPage({ params }: { params: { id: string } }) {
-  const request = getRequestById(params.id);
   const { toast } = useToast();
-
-  const [status, setStatus] = useState(request?.status);
-  const [partsChanged, setPartsChanged] = useState(request?.partsChanged || '');
+  const [request, setRequest] = useState<ServiceRequest | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [status, setStatus] = useState<ServiceRequest['status'] | undefined>();
+  const [partsChanged, setPartsChanged] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<{ suggestedAction: string; reasoning: string } | null>(null);
 
+  useEffect(() => {
+    const fetchRequest = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*')
+        .eq('id', params.id)
+        .single();
+      
+      if (error || !data) {
+        console.error('Error fetching request:', error);
+        setRequest(null);
+      } else {
+        const req = data as ServiceRequest;
+        setRequest(req);
+        setStatus(req.status);
+        setPartsChanged(req.partsChanged || '');
+      }
+      setLoading(false);
+    };
+
+    fetchRequest();
+  }, [params.id]);
+
+
+  if (loading) {
+    return (
+       <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-4 w-1/4" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   if (!request) {
     notFound();
   }
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    if (!status) return;
     setIsSaving(true);
-    // Mock update
-    console.log({ status, partsChanged });
-    setTimeout(() => {
+
+    const { error } = await supabase
+      .from('service_requests')
+      .update({ status, partsChanged, updatedAt: new Date().toISOString() })
+      .eq('id', request.id);
+
+    if (error) {
+       toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description: error.message,
+      });
+    } else {
       toast({
         title: 'Request Updated',
         description: `Status for ${request.id} has been saved.`,
       });
-      setIsSaving(false);
-    }, 1000);
+      // Optionally re-fetch data to confirm update
+      setRequest(prev => prev ? { ...prev, status, partsChanged } : null);
+    }
+    setIsSaving(false);
   };
   
   const handleAiSuggest = async () => {
@@ -153,6 +208,7 @@ export default function RequestDetailPage({ params }: { params: { id: string } }
             </CardContent>
             <CardFooter>
                  <Button onClick={handleUpdate} disabled={isSaving}>
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {isSaving ? 'Saving...' : 'Save Update'}
                 </Button>
             </CardFooter>

@@ -15,28 +15,94 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { serviceRequests, users } from '@/lib/data';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import type { ServiceRequest, User } from '@/lib/data';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminDashboard() {
-  const allRequests = serviceRequests;
-  const technicians = users.filter((u) => u.role === 'technician');
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      // Fetch all service requests
+      const { data: requestsData, error: requestsError } = await supabase
+        .from('service_requests')
+        .select('*')
+        .order('updatedAt', { ascending: false });
+      
+      // Fetch all users with the 'technician' role
+      const { data: techsData, error: techsError } = await supabase
+        .from('profiles')
+        .select('id, name, email, role')
+        .eq('role', 'technician');
+
+      if (requestsError) console.error('Error fetching requests:', requestsError);
+      else setRequests(requestsData as ServiceRequest[]);
+
+      if (techsError) console.error('Error fetching technicians:', techsError);
+      else setTechnicians(techsData as User[]);
+      
+      setLoading(false);
+    };
+
+    fetchData();
+  }, []);
+
   const technicianWorkloads = technicians.map(tech => {
-    const assigned = allRequests.filter(req => req.technicianId === tech.id && req.status !== 'Case Closed');
+    const assigned = requests.filter(req => req.technicianId === tech.id && req.status !== 'Case Closed');
     return { ...tech, workload: assigned.length };
   });
 
-  const unassignedRequests = allRequests.filter(req => req.status === 'Request Received');
+  const unassignedRequests = requests.filter(req => req.status === 'Request Received');
 
   const handleRowClick = (requestId: string) => {
     router.push(`/technician/requests/${requestId}`);
   };
+
+  if (loading) {
+    return (
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-8 w-1/2" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-8 w-3/4" />
+               <Skeleton className="h-4 w-1/2" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
@@ -61,7 +127,7 @@ export default function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allRequests.map((request) => (
+                {requests.map((request) => (
                   <TableRow key={request.id} onClick={() => handleRowClick(request.id)} className="cursor-pointer">
                     <TableCell className="font-medium">{request.id}</TableCell>
                     <TableCell>{request.customerName}</TableCell>

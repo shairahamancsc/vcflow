@@ -7,16 +7,42 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { serviceRequests } from '@/lib/data';
+import type { ServiceRequest } from '@/lib/data';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
+import { useAuth } from '@/context/auth-context';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function TechnicianDashboard() {
-  // Mock: Filter requests for a specific technician (e.g., Chintu, ID '2')
-  const assignedRequests = serviceRequests.filter(req => req.technicianId === '2' && req.status !== 'Case Closed');
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
   
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!user) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*')
+        .eq('technicianId', user.id)
+        .neq('status', 'Case Closed')
+        .order('updatedAt', { ascending: false });
+
+      if (error) {
+        console.error("Error fetching technician's requests:", error);
+      } else {
+        setRequests(data as ServiceRequest[]);
+      }
+      setLoading(false);
+    };
+
+    fetchRequests();
+  }, [user]);
+
   return (
     <div className="space-y-6">
       <Card>
@@ -27,9 +53,13 @@ export default function TechnicianDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {assignedRequests.length > 0 ? (
+          {loading ? (
+            <div className="flex justify-center items-center h-48">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : requests.length > 0 ? (
             <div className="space-y-4">
-              {assignedRequests.map(request => (
+              {requests.map(request => (
                 <Card key={request.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">

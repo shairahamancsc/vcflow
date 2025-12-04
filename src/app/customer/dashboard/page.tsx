@@ -15,12 +15,57 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { serviceRequests } from '@/lib/data';
+import type { ServiceRequest } from '@/lib/data';
 import { StatusBadge } from '@/components/dashboard/status-badge';
+import { useAuth } from '@/context/auth-context';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabaseClient';
+import { Skeleton } from '@/components/ui/skeleton';
+import Link from 'next/link';
 
-// In a real app, this would be a server component fetching data for the logged-in user.
 export default function CustomerDashboard() {
-  const userRequests = serviceRequests; // Mock: assuming all requests belong to the logged-in user.
+  const { user } = useAuth();
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRequests = async () => {
+      if (!user) return;
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('service_requests')
+        .select('*')
+        .eq('customerId', user.id)
+        .order('createdAt', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching service requests:', error);
+      } else {
+        setRequests(data as ServiceRequest[]);
+      }
+      setLoading(false);
+    };
+
+    fetchRequests();
+  }, [user]);
+
+  if (loading) {
+     return (
+       <Card>
+         <CardHeader>
+           <Skeleton className="h-8 w-1/3" />
+           <Skeleton className="h-4 w-2/3" />
+         </CardHeader>
+         <CardContent>
+            <div className="space-y-2">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+         </CardContent>
+       </Card>
+     );
+  }
 
   return (
     <div className="space-y-6">
@@ -32,32 +77,42 @@ export default function CustomerDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Request ID</TableHead>
-                <TableHead>Printer Model</TableHead>
-                <TableHead>Technician</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Updated</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {userRequests.map((request) => (
-                <TableRow key={request.id}>
-                  <TableCell className="font-medium">{request.id}</TableCell>
-                  <TableCell>{request.printerModel}</TableCell>
-                  <TableCell>{request.technicianName || 'Not Assigned'}</TableCell>
-                  <TableCell>
-                    <StatusBadge status={request.status} />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(request.updatedAt).toLocaleDateString()}
-                  </TableCell>
+          {requests.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Request ID</TableHead>
+                  <TableHead>Printer Model</TableHead>
+                  <TableHead>Technician</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Updated</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {requests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell className="font-medium">{request.id}</TableCell>
+                    <TableCell>{request.printerModel}</TableCell>
+                    <TableCell>{request.technicianName || 'Not Assigned'}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={request.status} />
+                    </TableCell>
+                    <TableCell>
+                      {new Date(request.updatedAt).toLocaleDateString()}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+                <h3 className="text-lg font-semibold">No requests yet!</h3>
+                <p>You haven&apos;t submitted any service requests.</p>
+                <Button asChild className="mt-4">
+                  <Link href="/customer/new-request">Create a New Request</Link>
+                </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
