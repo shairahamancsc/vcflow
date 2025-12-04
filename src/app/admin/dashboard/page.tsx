@@ -19,17 +19,24 @@ import { serviceRequests, users } from '@/lib/data';
 import { StatusBadge } from '@/components/dashboard/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function AdminDashboard() {
   const allRequests = serviceRequests;
   const technicians = users.filter((u) => u.role === 'technician');
-  
+  const router = useRouter();
+
   const technicianWorkloads = technicians.map(tech => {
     const assigned = allRequests.filter(req => req.technicianId === tech.id && req.status !== 'Case Closed');
     return { ...tech, workload: assigned.length };
   });
 
   const unassignedRequests = allRequests.filter(req => req.status === 'Request Received');
+
+  const handleRowClick = (requestId: string) => {
+    router.push(`/technician/requests/${requestId}`);
+  };
 
   return (
     <div className="grid gap-6 md:grid-cols-3">
@@ -38,7 +45,7 @@ export default function AdminDashboard() {
           <CardHeader>
             <CardTitle>All Service Requests</CardTitle>
             <CardDescription>
-              An overview of all service requests in the system.
+              An overview of all service requests in the system. Click a row to view details.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -47,18 +54,24 @@ export default function AdminDashboard() {
                 <TableRow>
                   <TableHead>Request ID</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Printer</TableHead>
                   <TableHead>Technician</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Last Updated</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {allRequests.map((request) => (
-                  <TableRow key={request.id}>
+                  <TableRow key={request.id} onClick={() => handleRowClick(request.id)} className="cursor-pointer">
                     <TableCell className="font-medium">{request.id}</TableCell>
                     <TableCell>{request.customerName}</TableCell>
+                    <TableCell>{request.printerModel}</TableCell>
                     <TableCell>{request.technicianName || 'Unassigned'}</TableCell>
                     <TableCell>
                       <StatusBadge status={request.status} />
+                    </TableCell>
+                    <TableCell>
+                      {new Date(request.updatedAt).toLocaleDateString()}
                     </TableCell>
                   </TableRow>
                 ))}
