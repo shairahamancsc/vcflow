@@ -20,15 +20,36 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getSupabase } from '@/lib/supabaseClient';
 import type { ServiceRequest, User } from '@/lib/data';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+const allStatuses: ServiceRequest['status'][] = [
+  'Request Received', 
+  'Technician Assigned', 
+  'Picked Up', 
+  'In Repair', 
+  'Ready to Deliver', 
+  'Delivered', 
+  'Case Closed'
+];
 
 export default function AdminDashboard() {
   const [requests, setRequests] = useState<ServiceRequest[]>([]);
   const [technicians, setTechnicians] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [technicianFilter, setTechnicianFilter] = useState('All');
   const router = useRouter();
 
   useEffect(() => {
@@ -56,6 +77,24 @@ export default function AdminDashboard() {
 
     fetchData();
   }, []);
+
+  const filteredRequests = useMemo(() => {
+    return requests.filter(request => {
+      const matchesSearch =
+        searchQuery === '' ||
+        request.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        request.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        request.printerModel.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === 'All' || request.status === statusFilter;
+
+      const matchesTechnician =
+        technicianFilter === 'All' || request.technicianId === technicianFilter;
+
+      return matchesSearch && matchesStatus && matchesTechnician;
+    });
+  }, [requests, searchQuery, statusFilter, technicianFilter]);
 
   const technicianWorkloads = technicians.map(tech => {
     const assigned = requests.filter(req => req.technicianId === tech.id && req.status !== 'Case Closed');
@@ -114,6 +153,33 @@ export default function AdminDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+             <div className="mb-6 grid gap-4 md:grid-cols-3">
+                <Input
+                  placeholder="Search by ID, customer, model..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="md:col-span-1"
+                />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Statuses</SelectItem>
+                    {allStatuses.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filter by technician" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All Technicians</SelectItem>
+                     <SelectItem value="null">Unassigned</SelectItem>
+                    {technicians.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -126,7 +192,7 @@ export default function AdminDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((request) => (
+                {filteredRequests.map((request) => (
                   <TableRow key={request.id} onClick={() => handleRowClick(request.id)} className="cursor-pointer">
                     <TableCell className="font-medium">{request.id}</TableCell>
                     <TableCell>{request.customerName}</TableCell>
@@ -142,6 +208,12 @@ export default function AdminDashboard() {
                 ))}
               </TableBody>
             </Table>
+            {filteredRequests.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                    <h3 className="text-lg font-semibold">No requests found</h3>
+                    <p>Try adjusting your filters.</p>
+                </div>
+            )}
           </CardContent>
         </Card>
       </div>
