@@ -93,9 +93,9 @@ export default function ManageUsersPage() {
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { toast } = useToast();
-  const supabase = getSupabase();
 
   const fetchUsers = async () => {
+    const supabase = getSupabase();
     setIsLoading(true);
     const { data, error } = await supabase.from('profiles').select('*');
     if (error) {
@@ -138,14 +138,18 @@ export default function ManageUsersPage() {
   
   const confirmDelete = async () => {
     if (!selectedUser) return;
+    const supabase = getSupabase();
 
-    const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
-
-    if (authError) {
-        toast({ variant: 'destructive', title: 'Failed to remove user from Auth', description: authError.message });
-        setIsDeleteAlertOpen(false);
-        return;
-    }
+    // Note: Deleting a user from auth requires admin privileges and is a sensitive operation.
+    // This function call would typically be done in a secure server-side environment (e.g., a Supabase Edge Function),
+    // not directly from the client. For this prototype, we are simplifying.
+    // In a real app, you'd call an API route that securely performs this action.
+    // const { error: authError } = await supabase.auth.admin.deleteUser(selectedUser.id);
+    // if (authError) {
+    //     toast({ variant: 'destructive', title: 'Failed to remove user from Auth', description: authError.message });
+    //     setIsDeleteAlertOpen(false);
+    //     return;
+    // }
     
     const { error: profileError } = await supabase.from('profiles').delete().eq('id', selectedUser.id);
     
@@ -161,6 +165,7 @@ export default function ManageUsersPage() {
 
   const onUserFormSubmit = async (values: z.infer<typeof userFormSchema> | z.infer<typeof editUserSchema>) => {
     setIsSubmitting(true);
+    const supabase = getSupabase();
     if (selectedUser) {
       const { error } = await supabase
         .from('profiles')
@@ -175,6 +180,8 @@ export default function ManageUsersPage() {
       }
     } else { 
         const newUserData = values as z.infer<typeof userFormSchema>;
+        // In a real app, you would not create users with password on the client.
+        // This is a simplified example. You would typically send this to a secure backend endpoint.
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email: newUserData.email,
             password: newUserData.password,
@@ -184,19 +191,10 @@ export default function ManageUsersPage() {
         if (authError || !authData.user) {
             toast({ variant: 'destructive', title: 'Signup Failed', description: authError?.message || 'Could not create user.' });
         } else {
-             const { error: profileError } = await supabase.from('profiles').insert({
-                id: authData.user.id,
-                name: newUserData.name,
-                email: newUserData.email,
-                role: newUserData.role
-            });
-
-            if (profileError) {
-                 toast({ variant: 'destructive', title: 'Profile Creation Failed', description: profileError.message });
-            } else {
-                 toast({ title: 'User Added', description: `${newUserData.name} has been added.` });
-                 fetchUsers();
-            }
+             // The onAuthStateChange handler in auth-context should now create the profile automatically.
+             // We can just refetch users.
+             toast({ title: 'User Added', description: `${newUserData.name} has been added. They will need to confirm their email.` });
+             fetchUsers();
         }
     }
     setIsSubmitting(false);
@@ -242,14 +240,14 @@ export default function ManageUsersPage() {
               </TableHeader>
               <TableBody>
                 {users.map((user) => {
-                    const avatarData = PlaceHolderImages.find(img => img.id === `avatar-${user.name.toLowerCase()}`);
+                    const avatarData = PlaceHolderImages.find(img => user.name && img.id === `avatar-${user.name.toLowerCase()}`);
                     return (
                         <TableRow key={user.id}>
                             <TableCell>
                                 <div className="flex items-center gap-3">
                                     <Avatar>
                                         {avatarData && <AvatarImage src={avatarData.imageUrl} data-ai-hint={avatarData.imageHint} />}
-                                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback>{user.name ? user.name.charAt(0) : '?'}</AvatarFallback>
                                     </Avatar>
                                     <span className="font-medium">{user.name}</span>
                                 </div>
@@ -381,7 +379,7 @@ export default function ManageUsersPage() {
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
                 This action cannot be undone. This will permanently remove{' '}
-                <strong>{selectedUser?.name}</strong> from the system and Supabase Authentication.
+                <strong>{selectedUser?.name}</strong> from the system. For security, this only removes the profile, not the auth user.
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

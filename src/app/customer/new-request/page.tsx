@@ -70,12 +70,12 @@ export default function NewRequestPage() {
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    const supabase = getSupabase();
     if (!user) {
         toast({ variant: 'destructive', title: 'Not logged in', description: 'You must be logged in to submit a request.' });
         return;
     }
     setIsSubmitting(true);
+    const supabase = getSupabase();
     
     const { error } = await supabase.from('service_requests').insert({
         customerId: user.id,
