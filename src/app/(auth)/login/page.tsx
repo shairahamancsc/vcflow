@@ -31,6 +31,11 @@ export default function LoginPage() {
   const { login } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,12 +47,14 @@ export default function LoginPage() {
   });
   
   useEffect(() => {
-    const rememberedEmail = localStorage.getItem('rememberedEmail');
-    if (rememberedEmail) {
-      form.setValue('email', rememberedEmail);
-      form.setValue('rememberMe', true);
+    if (isClient) {
+      const rememberedEmail = localStorage.getItem('rememberedEmail');
+      if (rememberedEmail) {
+        form.setValue('email', rememberedEmail);
+        form.setValue('rememberMe', true);
+      }
     }
-  }, [form]);
+  }, [form, isClient]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
