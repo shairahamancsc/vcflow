@@ -5,11 +5,13 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 // This prevents issues with stale configurations in a development environment.
 
 export const getSupabase = (): SupabaseClient => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Using hardcoded credentials for debugging.
+  // In a real application, these should come from environment variables.
+  const supabaseUrl = 'https://volqlfhcehjmczkbnwvx.supabase.co';
+  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZvbHFsZmhjZWhqbWN6a2Jud3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4OTY5MDUsImV4cCI6MjA4MDQ3MjkwNX0.-we58Y0i-gKDykLoLV6o26yV-kOZ9pi7jqtxLY0_G20';
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    throw new Error('Missing Supabase URL or Anon Key');
   }
 
   // Create and return a new client every time.
