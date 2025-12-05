@@ -28,39 +28,46 @@ const getAppUserProfile = async (userId: string): Promise<{ name: string; role: 
     return null;
   }
   
-  return data as { name: string; role: AppUser['role'] } | null;
+  return data;
 };
 
 const processUser = async (user: SupabaseUser | null): Promise<AppUser | null> => {
   if (!user) return null;
-  const supabase = getSupabase();
   
   let profile = await getAppUserProfile(user.id);
 
   if (!profile) {
-    const { data: newProfile, error } = await supabase
+    const supabase = getSupabase();
+    // Profile doesn't exist, so create it.
+    const { error: insertError } = await supabase
       .from('profiles')
       .insert({
         id: user.id,
         email: user.email,
         name: user.user_metadata.name || user.email, 
-        role: 'customer',
-      })
-      .select('name, role')
-      .single();
+        role: 'customer', // Default role
+      });
 
-    if (error) {
-      console.error('Error creating user profile:', error);
+    if (insertError) {
+      console.error('Error creating user profile:', insertError);
       return null;
     }
-    profile = newProfile;
+    
+    // Re-fetch the profile after creating it.
+    profile = await getAppUserProfile(user.id);
+  }
+
+  if (!profile) {
+     // If profile is still null after attempting to create it, something is wrong.
+     console.error("Failed to create or fetch user profile for user:", user.id);
+     return null;
   }
 
   return {
     id: user.id,
     email: user.email!,
-    name: profile?.name || user.email!,
-    role: profile?.role || 'customer',
+    name: profile.name,
+    role: profile.role,
   };
 };
 
@@ -85,16 +92,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         await processSession(session);
-        if (!session) {
-            router.push('/login');
-        }
       }
     );
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (loading) return;
@@ -105,7 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user && !isAuthPage && !isSplashPage) {
       router.push('/login');
     } else if (user && (isAuthPage || isSplashPage)) {
-      router.push(`/${user.role}/dashboard`);
+      const targetDashboard = user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`;
+      router.push(targetDashboard);
     }
   }, [user, loading, pathname, router]);
 
@@ -126,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     if (data.user) {
+        // onAuthStateChange will handle setting the user and redirecting
         return await processUser(data.user);
     }
     
@@ -136,11 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const supabase = getSupabase();
     await supabase.auth.signOut();
     setUser(null);
+    router.push('/login');
   };
 
   return (
     <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {loading ? null : children}
+      {children}
     </AuthContext.Provider>
   );
 }
